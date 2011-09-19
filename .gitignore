@@ -1,2 +1,5 @@
 .idea/*
 pkg/
+
+# vim swp files
+.*.swp
