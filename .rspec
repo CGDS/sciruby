@@ -1,6 +1,6 @@
---colour
+--color
 --format
-profile
---timeout
-20
---diff
+documentation
+#--timeout
+#20
+#--diff
