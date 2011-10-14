@@ -24,9 +24,16 @@ lib/sciruby/data/r/r_matrix.rb
 lib/sciruby/data/r/time_series.rb
 lib/sciruby/data/r/time_series_base.rb
 lib/sciruby/data/r/vector.rb
+lib/ext/hash.rb
+lib/ext/matrix.rb
+lib/ext/vector.rb
 lib/ext/shoes.rb
 lib/ext/csv.rb
 lib/ext/string.rb
+lib/sciruby/sparse/coercion_helper.rb
+lib/sciruby/sparse/conversion_helper.rb
+lib/sparse_matrix.rb
+lib/sparse_vector.rb
 bin/sciruby-plotter
 static/sciruby-icon.png
 test/test_recommend.rb

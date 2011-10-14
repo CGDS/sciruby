@@ -74,4 +74,6 @@ module SciRuby
   autoload(:Data, File.join(DIR, 'sciruby', 'data'))
 end
 
+autoload(:SparseVector, File.join(SciRuby::DIR, 'sparse_vector'))
+autoload(:SparseMatrix, File.join(SciRuby::DIR, 'sparse_matrix'))
 autoload(:Shoes, File.join(SciRuby::DIR, 'ext', 'shoes'))
