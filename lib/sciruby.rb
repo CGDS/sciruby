@@ -72,6 +72,7 @@ module SciRuby
   autoload(:Recommend, File.join(DIR, 'sciruby', 'recommend'))
   autoload(:Validation, File.join(DIR, 'sciruby', 'validation'))
   autoload(:Data, File.join(DIR, 'sciruby', 'data'))
+  autoload(:IO, File.join(DIR, 'sciruby', 'io'))
 end
 
 autoload(:SparseVector, File.join(SciRuby::DIR, 'sparse_vector'))

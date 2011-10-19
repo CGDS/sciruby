@@ -66,7 +66,9 @@ h = Hoe.spec 'sciruby' do
                      'gsl' => "~> 1.14.5",
                      'rsvg2' => '~> 1.0.0',
                      'simpler' => '>=0.1.0',
-                     'rubyvis' => '>=0.4.0'        }.to_a
+                     'rubyvis' => '>=0.4.0',
+                     'marcandre-packable' => "~>1.3.2"
+  }.to_a
 
 
   self.extra_dev_deps = {'hoe' => "~> 2.12",

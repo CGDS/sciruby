@@ -9,10 +9,11 @@ gem "green_shoes", ">=1.0.282" #:path => "/home/jwoods/green_shoes" #:git => "gi
 gem "statsample", ">=1.1.0" #, :git => "git://github.com/SciRuby/statsample.git"
 gem "gsl", "~>1.14.5"
 gem "rsvg2", "~>1.0.0"
-gem "rubyvis", "~>0.4.0"
+gem "rubyvis", ">=0.4.0"
 gem "integration", ">=0"
 gem "minimization", ">=0"
 gem "simpler", ">=0"
+gem "marcandre-packable", "~>1.3.2", :require => "packable"
 
 gem "hoe", "~>2.12", :group => [:development, :test]
 gem "rdoc", ">=0", :group => [:development, :test]

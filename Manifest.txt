@@ -24,6 +24,10 @@ lib/sciruby/data/r/r_matrix.rb
 lib/sciruby/data/r/time_series.rb
 lib/sciruby/data/r/time_series_base.rb
 lib/sciruby/data/r/vector.rb
+lib/sciruby/io.rb
+lib/sciruby/io/matlab.rb
+lib/sciruby/io/matlab/mat_file_reader.rb
+lib/sciruby/io/matlab/mat_file_5_reader.rb
 lib/ext/hash.rb
 lib/ext/matrix.rb
 lib/ext/vector.rb
