@@ -109,30 +109,6 @@ class SparseMatrix < Matrix
       new rows, num_rows, num_columns
     end
 
-    
-    #
-    # See +columns_by_index+.
-    #
-    def rows_by_index(rows, dimensions, copy = true)
-      num_rows = dimensions[0]
-      num_columns = dimensions[1]
-      new rows, num_rows, num_columns
-    end
-    private :rows_by_index
-
-
-    #
-    # Helper method for loading a matrix from a hash of hashes, without changing any of the keys or deleting empty rows/
-    # columns. Be aware that this function and +columns_by_index+ have no sanity checks, so it's important to make sure
-    # your indices set up correctly.
-    #
-    # This function is mainly for loading data from .mat files (see SciRuby::IO::Matlab). You probably want to use
-    # the +columns+ function instead.
-    #
-    def columns_by_index(columns, dimensions)
-      rows_by_index(columns, dimensions.reverse, false).transpose
-    end
-
 
     #
     # Creates a sparse matrix using +columns+ as an array of column vectors.

@@ -106,46 +106,34 @@ module SciRuby::IO::Matlab
         ir = row_index
         jc = column_index
 
-        STDERR.puts "row_index range: #{ir.min} #{ir.max}"
-        STDERR.puts "column_index range: #{jc.min} #{jc.max}"
-        STDERR.puts "jc[0]=#{jc[0]}; jc[1]-1 = #{jc[1]-1}"
-        STDERR.puts "ir[jc[0]]=#{ir[jc[0]]}; ir[jc[1]-1]=#{ir[jc[1]-1]}"
-        STDERR.puts "real_part[jc[0]]=#{real_part[jc[0]]}; real_part[jc[1]-1]=#{real_part[jc[1]-1]}"
+        mat = {}
+        (0...dimensions[1]).each do |j|
+          p_0 = jc[j]
+          p_n = jc[j+1]-1
 
-        #return ir, jc
-        
-        SparseMatrix.columns_by_index(begin
-          mat = {}
-          (0...dimensions[1]).each do |j|
-            p_0 = jc[j]
-            p_n = jc[j+1]-1
-
-            (p_0..p_n).each do |p|
-              puts "i=#{ir[p]}"
-              mat[j] ||= {}
-              mat[j][ir[p]] = complex ? Complex(real_part[p], imaginary_part[p]) : real_part[p]
-            end
-
+          (p_0..p_n).each do |p|
+            mat[j] ||= {}
+            mat[j][ir[p]] = complex ? Complex(real_part[p], imaginary_part[p]) : real_part[p]
           end
-          STDERR.puts mat.inspect
-          mat
-        end, dimensions)
+        end
+
+        SparseMatrix.send(:new, mat, dimensions[1], dimensions[0]).transpose
       end
 
       def read_packed packedio, options
         flags_class, self.nonzero_max = packedio.read([Element, options]).data
 
         self.matlab_class   = MatFileReader::MCLASSES[flags_class % 16]
-        STDERR.puts "Matrix class: #{self.matlab_class}"
+        #STDERR.puts "Matrix class: #{self.matlab_class}"
         
         self.logical        = (flags_class >> 8) % 2 == 1 ? true : false
         self.global         = (flags_class >> 9) % 2 == 1 ? true : false
         self.complex        = (flags_class >> 10) % 2 == 1 ? true : false
-        STDERR.puts "nzmax: #{self.nonzero_max}"
+        #STDERR.puts "nzmax: #{self.nonzero_max}"
 
         dimensions_tag_data = packedio.read([Element, options])
         self.dimensions     = dimensions_tag_data.data
-        STDERR.puts "dimensions: #{self.dimensions}"
+        #STDERR.puts "dimensions: #{self.dimensions}"
 
         begin
           name_tag_data       = packedio.read([Element, options])
@@ -174,7 +162,7 @@ module SciRuby::IO::Matlab
             col_index_tag_data = packedio.read([Element, options])
 
             self.row_index, self.column_index = row_index_tag_data.data, col_index_tag_data.data
-            STDERR.puts "row and col indeces: #{self.row_index.size}, #{self.column_index.size}"
+            # STDERR.puts "row and col indeces: #{self.row_index.size}, #{self.column_index.size}"
           end
 
           real_part_tag_data = packedio.read([Element, options])
@@ -219,7 +207,7 @@ module SciRuby::IO::Matlab
         data_type = MDTYPE_UNPACK_ARGS[tag.data_type]
 
         self.tag = tag
-        STDERR.puts self.tag.inspect
+        #STDERR.puts self.tag.inspect
 
         raise(ElementDataIOError.new(tag, "Unrecognized Matlab type #{tag.raw_data_type}")) if data_type.nil?
 
@@ -250,7 +238,7 @@ module SciRuby::IO::Matlab
 
       def ignore_padding packedio, bytes
         if bytes > 0
-          STDERR.puts "Ignored #{8 - bytes} on #{self.tag.data_type}"
+          #STDERR.puts "Ignored #{8 - bytes} on #{self.tag.data_type}"
           ignored = packedio.read(8 - bytes)
           ignored_unpacked = ignored.unpack("C*")
           raise(IOError, "Nonzero padding detected: #{ignored_unpacked}") if ignored_unpacked.any? { |i| i != 0 }
