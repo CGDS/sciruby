@@ -109,6 +109,18 @@ class SparseMatrix < Matrix
       new rows, num_rows, num_columns
     end
 
+
+    def rows_by_index(rows, dimensions, copy = true)
+      num_rows = dimensions[0]
+      num_columns = dimensions[1]
+      new rows, num_rows, num_columns
+    end
+
+    def columns_by_index(columns, dimensions)
+      rows_by_index(columns, dimensions.reverse, false).transpose
+    end
+
+
     #
     # Creates a sparse matrix using +columns+ as an array of column vectors.
     #   SparseMatrix.columns([[25, 93], [-1, 66]])

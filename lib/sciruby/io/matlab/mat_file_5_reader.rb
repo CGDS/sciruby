@@ -33,7 +33,7 @@ module SciRuby::IO::Matlab
       end
     end
 
-    class Tag < Struct.new(:data_type, :raw_data_type, :bytes)
+    class Tag < Struct.new(:data_type, :raw_data_type, :bytes, :small)
       include Packable
 
       DATA_TYPE_OPTS = BYTES_OPTS = {:bytes => 4, :signed => false}
@@ -44,13 +44,30 @@ module SciRuby::IO::Matlab
         packedio << [data_type, DATA_TYPE_OPTS] << [bytes, BYTES_OPTS]
       end
 
+      def small?
+        self.bytes > 0 && self.bytes <= 4
+      end
+
+      def size
+        small? ? 4 : 8
+      end
+
       def read_packed packedio, options
-        self.raw_data_type, self.bytes = packedio >> [Integer, DATA_TYPE_OPTS.merge(options)] >> [Integer, BYTES_OPTS.merge(options)]
+        self.raw_data_type = packedio.read([Integer, DATA_TYPE_OPTS.merge(options)])
+
+        upper, lower = self.raw_data_type >> 16, self.raw_data_type & 0xFFFF # Borrowed from a SciPy patch
+        if upper > 0 # Small data element format
+          raise(IOError, "Small data element format indicated, but length is more than 4 bytes!") if upper > 4
+          self.bytes          = upper
+          self.raw_data_type  = lower
+        else
+          self.bytes         = packedio.read([Integer, BYTES_OPTS.merge(options)])
+        end
         self.data_type = MatFileReader::MDTYPES[self.raw_data_type]
       end
 
       def inspect
-        "#<#{self.class.to_s} data_type=#{data_type}[#{raw_data_type}][#{raw_data_type.to_s(2)}] bytes=#{bytes}>"
+        "#<#{self.class.to_s} data_type=#{data_type}[#{raw_data_type}][#{raw_data_type.to_s(2)}] bytes=#{bytes} size=#{size}#{small? ? ' small' : ''}>"
       end
     end
 
@@ -85,38 +102,63 @@ module SciRuby::IO::Matlab
       def to_sparse_matrix
         raise(NotImplementedError, "Only supports two dimensions or less, currently") if dimensions.size > 2
         return to_matrix.to_sparse_matrix unless matlab_class == :mxSPARSE # Read as matrix first
-        SparseMatrix.build(*dimensions) do |i, j|
-          ir = row_index
-          jc = column_index
+        
+        ir = row_index
+        jc = column_index
 
-          # http://www.unc.edu/depts/case/BMELIB/apiguide.pdf
-          # See top of page 1-6.
-          if i >= jc[j] && i < jc[j+1]
-            self.complex ? Complex(real_part[jc[j]], imaginary_part[jc[j]]) : real_part[jc[j]]
-          else
-            0
+        STDERR.puts "row_index range: #{ir.min} #{ir.max}"
+        STDERR.puts "column_index range: #{jc.min} #{jc.max}"
+        STDERR.puts "jc[0]=#{jc[0]}; jc[1]-1 = #{jc[1]-1}"
+        STDERR.puts "ir[jc[0]]=#{ir[jc[0]]}; ir[jc[1]-1]=#{ir[jc[1]-1]}"
+        STDERR.puts "real_part[jc[0]]=#{real_part[jc[0]]}; real_part[jc[1]-1]=#{real_part[jc[1]-1]}"
+
+        #return ir, jc
+        
+        SparseMatrix.columns_by_index(begin
+          mat = {}
+          (0...dimensions[1]).each do |j|
+            p_0 = jc[j]
+            p_n = jc[j+1]-1
+
+            (p_0..p_n).each do |p|
+              puts "i=#{ir[p]}"
+              mat[j] ||= {}
+              mat[j][ir[p]] = complex ? Complex(real_part[p], imaginary_part[p]) : real_part[p]
+            end
+
           end
-        end
+          STDERR.puts mat.inspect
+          mat
+        end, dimensions)
       end
 
       def read_packed packedio, options
         flags_class, self.nonzero_max = packedio.read([Element, options]).data
 
         self.matlab_class   = MatFileReader::MCLASSES[flags_class % 16]
-        #STDERR.puts "Matrix class: #{self.matlab_class}"
+        STDERR.puts "Matrix class: #{self.matlab_class}"
         
         self.logical        = (flags_class >> 8) % 2 == 1 ? true : false
         self.global         = (flags_class >> 9) % 2 == 1 ? true : false
         self.complex        = (flags_class >> 10) % 2 == 1 ? true : false
+        STDERR.puts "nzmax: #{self.nonzero_max}"
 
         dimensions_tag_data = packedio.read([Element, options])
         self.dimensions     = dimensions_tag_data.data
-        ignore_padding(packedio, dimensions_tag_data.tag.bytes % 8) # Read padding on dimensions
-        #STDERR.puts "dimensions: #{self.dimensions}"
+        STDERR.puts "dimensions: #{self.dimensions}"
 
-        name_tag_data       = packedio.read([Element, options])
-        self.matlab_name    = name_tag_data.data.collect { |i| i.chr }.join('')
-        ignore_padding(packedio, (name_tag_data.tag.bytes + 4) % 8) unless self.matlab_name.size == 0 # Read padding on name
+        begin
+          name_tag_data       = packedio.read([Element, options])
+          self.matlab_name    = name_tag_data.data.is_a?(Array) ? name_tag_data.data.collect { |i| i.chr }.join('') : name_tag_data.data.chr
+        rescue ElementDataIOError => e
+          STDERR.puts "ERROR: Failure while trying to read Matlab variable name: #{name_tag_data.inspect}"
+          STDERR.puts "Element Tag:"
+          STDERR.puts "    #{e.tag}"
+          STDERR.puts "Previously, I read these dimensions:"
+          STDERR.puts "    #{dimensions_tag_data.inspect}"
+          STDERR.puts "Unpack options were: #{options.inspect}"
+          raise(e)
+        end
 
         #STDERR.puts [flags_class.to_s(2), self.complex, self.global, self.logical, nil, self.mclass, self.nonzero_max].join("\t")
         if self.matlab_class == :mxCELL
@@ -127,24 +169,20 @@ module SciRuby::IO::Matlab
           number_of_cells.times { self.cells << packedio.read([Element, options]) }
         else
           if self.matlab_class == :mxSPARSE
-            # STDERR.puts "nzmax: #{self.nonzero_max}"
+
             row_index_tag_data = packedio.read([Element, options])
-            ignore_padding(packedio, row_index_tag_data.tag.bytes % 8)
             col_index_tag_data = packedio.read([Element, options])
-            ignore_padding(packedio, col_index_tag_data.tag.bytes % 8)
 
             self.row_index, self.column_index = row_index_tag_data.data, col_index_tag_data.data
-            #STDERR.puts "row and col indeces: #{self.row_index.inspect}, #{self.column_index.inspect}"
+            STDERR.puts "row and col indeces: #{self.row_index.size}, #{self.column_index.size}"
           end
 
           real_part_tag_data = packedio.read([Element, options])
           self.real_part     = real_part_tag_data.data
-          ignore_padding(packedio, real_part_tag_data.tag.bytes % 8) # Read padding on real part
 
           if self.complex
             i_part_tag_data  = packedio.read([Element, options])
             self.imaginary_part = i_part_tag_data.data
-            ignore_padding(packedio, i_part_tag_data.tag.bytes % 8)
           end
         end
 
@@ -153,6 +191,18 @@ module SciRuby::IO::Matlab
       def ignore_padding packedio, bytes
         packedio.read([Integer, {:unsigned => true, :bytes => bytes}]) if bytes > 0
       end
+    end
+
+    class ElementDataIOError < IOError
+      def initialize tag=nil, msg=nil
+        @tag = tag
+        super msg
+      end
+
+      def to_s
+        @tag.inspect + "\n" + super
+      end
+      attr_reader :tag
     end
 
     class Element < Struct.new(:tag, :data)
@@ -169,24 +219,41 @@ module SciRuby::IO::Matlab
         data_type = MDTYPE_UNPACK_ARGS[tag.data_type]
 
         self.tag = tag
+        STDERR.puts self.tag.inspect
 
-        raise(TypeError, "Unrecognized Matlab type #{tag.data_type}") if data_type.nil?
-        if tag.bytes > 0
-          number_of_reads = data_type[1].has_key?(:bytes) ? tag.bytes / data_type[1][:bytes] : 1
+        raise(ElementDataIOError.new(tag, "Unrecognized Matlab type #{tag.raw_data_type}")) if data_type.nil?
 
-          data_type[1].merge!({:endian => options[:endian]})
-          #STDERR.puts "Read #{data_type.inspect} #{number_of_reads} times"
-
-          self.data = begin # data may consist of multiple values
-            ary = []
-            number_of_reads.times do
-              ary << packedio.read(data_type)
-            end
-            number_of_reads == 1 ? ary[0] : ary
-          end
-        else
-          #STDERR.puts "tag bytes = 0"
+        if tag.bytes == 0
           self.data = []
+        else
+          number_of_reads = data_type[1].has_key?(:bytes) ? tag.bytes / data_type[1][:bytes] : 1
+          data_type[1].merge!({:endian => options[:endian]})
+
+          if number_of_reads == 1
+            self.data = packedio.read(data_type)
+          else
+            self.data = begin
+              ary = []; number_of_reads.times do
+                ary << packedio.read(data_type)
+              end
+              ary
+            end
+          end
+          begin
+            ignore_padding(packedio, (tag.bytes + tag.size) % 8) unless [:miMATRIX, :miCOMPRESSED].include?(tag.data_type)
+          rescue EOFError
+            STDERR.puts self.tag.inspect
+            raise(ElementDataIOError.new(tag, "Ignored too much"))
+          end
+        end
+      end
+
+      def ignore_padding packedio, bytes
+        if bytes > 0
+          STDERR.puts "Ignored #{8 - bytes} on #{self.tag.data_type}"
+          ignored = packedio.read(8 - bytes)
+          ignored_unpacked = ignored.unpack("C*")
+          raise(IOError, "Nonzero padding detected: #{ignored_unpacked}") if ignored_unpacked.any? { |i| i != 0 }
         end
       end
 

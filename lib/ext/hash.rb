@@ -6,10 +6,10 @@ class Hash
   #
   def transpose
     h = {}
-    self.each_pair do |k1,v1|
-      v1.each_pair do |k2,v2|
-        h[k2] ||= {}
-        h[k2][k1] = v2
+    self.each_pair do |j,h2|
+      h2.each_pair do |i,v|
+        h[i] ||= {}
+        h[i][j] = v
       end
     end
     h
