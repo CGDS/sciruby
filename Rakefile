@@ -57,13 +57,14 @@ end
 h = Hoe.spec 'sciruby' do
   self.version = SciRuby::VERSION
   self.require_ruby_version ">=1.9"
+  self.readme_file = 'README.rdoc'
   self.developer('SciRuby Development Team', 'sciruby-dev@googlegroups.com')
   self.extra_deps = {'distribution' => ">=0.4.0",
                      'green_shoes' => ">=1.0.282",
                      'statsample' => ">=1.1.0",
                      'integration' => ">= 0",
                      'minimization' => ">= 0",
-                     'gsl' => "~> 1.14.5",
+                     'gsl' => ">= 1.14.5",
                      'rsvg2' => '~> 1.0.0',
                      'simpler' => '>=0.1.0',
                      'rubyvis' => '>=0.4.0',
@@ -79,6 +80,7 @@ h = Hoe.spec 'sciruby' do
                          'nokogiri' => ">=0", # for Rubyvis
                          'RedCloth' => ">=0", # for Rubyvis
                          'gtksourceview2' => ">=0", # for editor
+                         'rmagick' => ">= 2.13", # for writing non-SVG image files
                          'shoulda' => "~> 2.11",
                          'hoe-gemspec' => "~> 1.0",
                          'hoe-bundler' => "~> 1.1",
@@ -130,11 +132,12 @@ Thanks for installing SciRuby! Happy hypothesis testing!
 end
 
 RDoc::Task.new(:docs) do |rd|
-  rd.main = h.readme_file
   rd.options << '-d' if (`which dot` =~ /\/dot/) unless
     ENV['NODOT'] || Hoe::WINDOZE
   rd.rdoc_dir = 'doc'
 
+  rd.rdoc_files.include(h.readme_file)
+  rd.main = h.readme_file
   rd.rdoc_files.include("lib/**/*.rb")
   rd.rdoc_files += h.spec.extra_rdoc_files
   rd.rdoc_files.reject! {|f| f=="Manifest.txt"}
@@ -147,7 +150,7 @@ RDoc::Task.new(:docs) do |rd|
     rd.options << spec.rdoc_options[title_index + 1]
     end
   else
-    title = "#{h.name}-#{h.version} Documentation"
+    title = "SciRuby #{h.version} Documentation"
     title = "#{h.rubyforge_name}'s " + title if h.rubyforge_name != h.name
     rd.options << '--title' << title
   end
